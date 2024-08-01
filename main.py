@@ -42,6 +42,8 @@ class Navigation2DEnv(gym.Env):
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_shape,), dtype=np.float32)
         self.np_random = np.random.default_rng()
         self.render_mode = render_mode
+        self.max_steps = 1000
+        self.current_step = 0
 
     def reset(self, seed=None, **kwargs):
         if seed is not None:
@@ -49,6 +51,7 @@ class Navigation2DEnv(gym.Env):
         self.data.qpos[:] = np.zeros_like(self.data.qpos)
         self.data.qvel[:] = np.zeros_like(self.data.qvel)
         mujoco.mj_forward(self.model, self.data)
+        self.current_step = 0
         return self._get_obs(), {}
 
     def _get_obs(self):
@@ -57,12 +60,18 @@ class Navigation2DEnv(gym.Env):
         return np.concatenate([agent_pos, goal_pos])
 
     def step(self, action):
+        action = np.clip(action, self.action_space.low, self.action_space.high)
         self.data.ctrl[:] = action
         mujoco.mj_step(self.model, self.data)
         obs = self._get_obs()
         distance_to_goal = np.linalg.norm(obs[:2] - obs[2:])
         reward = -distance_to_goal  # Negative reward proportional to the distance to the goal
-        done = distance_to_goal < 0.1  # Consider the episode done if the agent is close to the goal
+        if distance_to_goal < 0.1:
+            reward += 10  # Bonus for reaching the goal
+        else:
+            reward -= 0.1  # Penalty for not reaching the goal
+        self.current_step += 1
+        done = distance_to_goal < 0.1 or self.current_step >= self.max_steps  # Terminate if goal is reached or max steps exceeded
         return obs, reward, done, {}, {}
 
     def render(self, mode='human'):
@@ -84,11 +93,11 @@ if __name__ == "__main__":
     # Create the environment with render_mode
     env = make_vec_env(Navigation2DEnv, n_envs=1, env_kwargs={"render_mode": "human"})
 
-    # Instantiate the TRPO agent
-    model = TRPO("MlpPolicy", env, verbose=1)
+    # Instantiate the TRPO agent with adjusted parameters
+    model = TRPO("MlpPolicy", env, verbose=1, learning_rate=0.001, gamma=0.99)
 
-    # Train the agent
-    model.learn(total_timesteps=100000)
+    # Train the agent with more timesteps
+    model.learn(total_timesteps=300000)
 
     # Save the model
     model.save("trpo_navigation2d")
@@ -101,7 +110,6 @@ if __name__ == "__main__":
     for _ in range(1000):
         action, _states = model.predict(obs)
         obs, rewards, dones, info = env.step(action)
-        print('rendering now')
         env.render()
         if dones:
             break
