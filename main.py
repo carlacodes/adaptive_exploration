@@ -32,7 +32,6 @@ MODEL_XML = """
 </mujoco>
 """
 
-# Update the step method in the Navigation2DEnv class
 class Navigation2DEnv(gym.Env):
     def __init__(self, render_mode=None):
         super(Navigation2DEnv, self).__init__()
