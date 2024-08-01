@@ -6,7 +6,7 @@ import mujoco_viewer
 # Create the environment
 from sb3_contrib import TRPO
 from stable_baselines3.common.env_util import make_vec_env
-
+from stable_baselines3.common.vec_env import VecNormalize
 
 MODEL_XML = """
 <mujoco model="2D_navigation">
@@ -30,6 +30,7 @@ MODEL_XML = """
 </mujoco>
 """
 
+# Update the step method in the Navigation2DEnv class
 class Navigation2DEnv(gym.Env):
     def __init__(self, render_mode=None):
         super(Navigation2DEnv, self).__init__()
@@ -86,24 +87,27 @@ class Navigation2DEnv(gym.Env):
             self.viewer.close()
             self.viewer = None
 
-
-
     # Test the Navigation2DEnv environment
+
+
+# Adjust training parameters in the main script
 if __name__ == "__main__":
     # Create the environment with render_mode
     env = make_vec_env(Navigation2DEnv, n_envs=1, env_kwargs={"render_mode": "human"})
+    env = VecNormalize(env, norm_obs=True, norm_reward=True)
 
-    # Instantiate the TRPO agent with adjusted parameters
-    model = TRPO("MlpPolicy", env, verbose=1, learning_rate=0.001, gamma=0.99)
+    # Instantiate the PPO agent with adjusted parameters
+    from stable_baselines3 import PPO
+    model = PPO("MlpPolicy", env, verbose=1, learning_rate=0.0001, gamma=0.99, gae_lambda=0.95, n_steps=2048, batch_size=64, n_epochs=10, clip_range=0.2)
 
     # Train the agent with more timesteps
-    model.learn(total_timesteps=300000)
+    model.learn(total_timesteps=500000)
 
     # Save the model
-    model.save("trpo_navigation2d")
+    model.save("ppo_navigation2d")
 
     # Load the model
-    model = TRPO.load("trpo_navigation2d")
+    model = PPO.load("ppo_navigation2d")
 
     # Test the trained agent
     obs = env.reset()
@@ -115,4 +119,3 @@ if __name__ == "__main__":
             break
 
     env.close()
-
