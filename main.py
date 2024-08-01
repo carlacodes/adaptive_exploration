@@ -79,10 +79,12 @@ class Navigation2DEnv(gym.Env):
         reward += direction_alignment  # Reward for aligning with the goal direction
         if distance_to_goal < 0.1:
             reward += 10  # Bonus for reaching the goal
+            done = True  # Stop the agent if it is very close to the goal
         else:
             reward -= 0.1  # Penalty for not reaching the goal
+            done = False
         self.current_step += 1
-        done = distance_to_goal < 0.1 or self.current_step >= self.max_steps  # Terminate if goal is reached or max steps exceeded
+        done = done or self.current_step >= self.max_steps  # Terminate if goal is reached or max steps exceeded
         return obs, reward, done, {}, {}
 
     def render(self, mode='human'):
@@ -104,10 +106,10 @@ if __name__ == "__main__":
     env = VecNormalize(env, norm_obs=True, norm_reward=True)
 
     # Instantiate the PPO agent with adjusted parameters
-    model = PPO("MlpPolicy", env, verbose=1, learning_rate=0.0001, gamma=0.99, gae_lambda=0.95, n_steps=2048, batch_size=64, n_epochs=10, clip_range=0.2)
-
-    model.learn(total_timesteps=500000)
-    model.save("ppo_navigation2d")
+    # model = PPO("MlpPolicy", env, verbose=1, learning_rate=0.0001, gamma=0.99, gae_lambda=0.95, n_steps=2048, batch_size=64, n_epochs=10, clip_range=0.2)
+    #
+    # model.learn(total_timesteps=500000)
+    # model.save("ppo_navigation2d")
 
     # Load the model
     model = PPO.load("ppo_navigation2d")
