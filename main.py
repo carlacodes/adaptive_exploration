@@ -5,6 +5,8 @@ import mujoco
 import mujoco_viewer
 # Create the environment
 from sb3_contrib import TRPO
+from stable_baselines3 import PPO
+
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 
@@ -64,9 +66,17 @@ class Navigation2DEnv(gym.Env):
         action = np.clip(action, self.action_space.low, self.action_space.high)
         self.data.ctrl[:] = action
         mujoco.mj_step(self.model, self.data)
+        self.data.time += self.model.opt.timestep  # Increment the timestep
         obs = self._get_obs()
-        distance_to_goal = np.linalg.norm(obs[:2] - obs[2:])
+        agent_pos = obs[:2]
+        goal_pos = obs[2:]
+        distance_to_goal = np.linalg.norm(agent_pos - goal_pos)
+        direction_to_goal = (goal_pos - agent_pos) / (distance_to_goal + 1e-8)
+        agent_direction = np.array([1, 0])  # Assuming the agent always faces the positive x-direction
+        direction_alignment = np.dot(agent_direction, direction_to_goal)
+
         reward = -distance_to_goal  # Negative reward proportional to the distance to the goal
+        reward += direction_alignment  # Reward for aligning with the goal direction
         if distance_to_goal < 0.1:
             reward += 10  # Bonus for reaching the goal
         else:
@@ -87,9 +97,6 @@ class Navigation2DEnv(gym.Env):
             self.viewer.close()
             self.viewer = None
 
-    # Test the Navigation2DEnv environment
-
-
 # Adjust training parameters in the main script
 if __name__ == "__main__":
     # Create the environment with render_mode
@@ -97,13 +104,9 @@ if __name__ == "__main__":
     env = VecNormalize(env, norm_obs=True, norm_reward=True)
 
     # Instantiate the PPO agent with adjusted parameters
-    from stable_baselines3 import PPO
     model = PPO("MlpPolicy", env, verbose=1, learning_rate=0.0001, gamma=0.99, gae_lambda=0.95, n_steps=2048, batch_size=64, n_epochs=10, clip_range=0.2)
 
-    # Train the agent with more timesteps
     model.learn(total_timesteps=500000)
-
-    # Save the model
     model.save("ppo_navigation2d")
 
     # Load the model
@@ -111,7 +114,7 @@ if __name__ == "__main__":
 
     # Test the trained agent
     obs = env.reset()
-    for _ in range(1000):
+    for _ in range(10000):
         action, _states = model.predict(obs)
         obs, rewards, dones, info = env.step(action)
         env.render()
