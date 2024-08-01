@@ -31,7 +31,7 @@ MODEL_XML = """
 """
 
 class Navigation2DEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, render_mode=None):
         super(Navigation2DEnv, self).__init__()
         self.model = mujoco.MjModel.from_xml_string(MODEL_XML)
         self.data = mujoco.MjData(self.model)
@@ -40,8 +40,12 @@ class Navigation2DEnv(gym.Env):
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
         obs_shape = 4
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_shape,), dtype=np.float32)
+        self.np_random = np.random.default_rng()
+        self.render_mode = render_mode
 
-    def reset(self):
+    def reset(self, seed=None, **kwargs):
+        if seed is not None:
+            self.np_random = np.random.default_rng(seed)
         self.data.qpos[:] = np.zeros_like(self.data.qpos)
         self.data.qvel[:] = np.zeros_like(self.data.qvel)
         mujoco.mj_forward(self.model, self.data)
@@ -61,6 +65,8 @@ class Navigation2DEnv(gym.Env):
         return obs, reward, done, {}, {}
 
     def render(self, mode='human'):
+        if self.render_mode is None:
+            raise ValueError("No render_mode was passed to the environment constructor.")
         if self.viewer is None:
             self.viewer = mujoco_viewer.MujocoViewer(self.model, self.data)
         self.viewer.render()
@@ -70,12 +76,12 @@ class Navigation2DEnv(gym.Env):
             self.viewer.close()
             self.viewer = None
 
-# Test the Navigation2DEnv environment
+
+
+    # Test the Navigation2DEnv environment
 if __name__ == "__main__":
-
-
-    # Create the environment
-    env = make_vec_env(Navigation2DEnv, n_envs=1)
+    # Create the environment with render_mode
+    env = make_vec_env(Navigation2DEnv, n_envs=1, env_kwargs={"render_mode": "human"})
 
     # Instantiate the TRPO agent
     model = TRPO("MlpPolicy", env, verbose=1)
@@ -99,3 +105,4 @@ if __name__ == "__main__":
             break
 
     env.close()
+
