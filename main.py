@@ -60,8 +60,9 @@ class Navigation2DEnv(gym.Env):
         self.data.ctrl[:] = action
         mujoco.mj_step(self.model, self.data)
         obs = self._get_obs()
-        reward = -np.linalg.norm(obs[:2] - obs[2:])
-        done = reward > -0.1
+        distance_to_goal = np.linalg.norm(obs[:2] - obs[2:])
+        reward = -distance_to_goal  # Negative reward proportional to the distance to the goal
+        done = distance_to_goal < 0.1  # Consider the episode done if the agent is close to the goal
         return obs, reward, done, {}, {}
 
     def render(self, mode='human'):
@@ -100,6 +101,7 @@ if __name__ == "__main__":
     for _ in range(1000):
         action, _states = model.predict(obs)
         obs, rewards, dones, info = env.step(action)
+        print('rendering now')
         env.render()
         if dones:
             break
