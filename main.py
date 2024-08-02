@@ -33,6 +33,10 @@ MODEL_XML = """
 """
 
 class Navigation2DEnv(gym.Env):
+    '''A simple 2D navigation environment in Mujoco. The agent must reach the goal position.
+    The observation space is the agent's position and the goal position.
+    The action space is the agent's velocity in the x and y directions.
+    The reward is the negative distance to the goal, plus a bonus for reaching the goal'''
     def __init__(self, render_mode=None):
         super(Navigation2DEnv, self).__init__()
         self.model = mujoco.MjModel.from_xml_string(MODEL_XML)
@@ -48,6 +52,9 @@ class Navigation2DEnv(gym.Env):
         self.current_step = 0
 
     def reset(self, seed=None, **kwargs):
+        '''Reset the environment to a random initial state. Optionally set the random seed.
+        Returns the initial observation.
+        '''
         if seed is not None:
             self.np_random = np.random.default_rng(seed)
         self.data.qpos[:] = np.zeros_like(self.data.qpos)
@@ -62,6 +69,11 @@ class Navigation2DEnv(gym.Env):
         return np.concatenate([agent_pos, goal_pos])
 
     def step(self, action):
+        '''Take a step in the environment. The action is the agent's velocity in the x and y directions.
+        Returns the next observation, reward, done flag, and additional information.
+        :arg action: The agent's velocity in the x and y directions.
+        :returns: obs, reward, done, info,'''
+
         action = np.clip(action, self.action_space.low, self.action_space.high)
         self.data.ctrl[:] = action
         mujoco.mj_step(self.model, self.data)
